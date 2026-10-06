@@ -235,13 +235,26 @@ export async function executeTool(name: string, rawInput: unknown, ctx: ToolCont
       }
       // Standard shipping: 3-5 business days after the order ships (same day as placed).
       const placed = new Date(order.created_at);
+      const latest = addBusinessDays(placed, 5);
+      if (latest < new Date()) {
+        return {
+          output: {
+            order_id: order.id,
+            status: order.status,
+            tracking_number: order.tracking_number,
+            delayed: true,
+            expected_by: latest.toISOString().slice(0, 10),
+            note: "Past the expected delivery window. Apologize, offer to open a carrier investigation, or escalate.",
+          },
+        };
+      }
       return {
         output: {
           order_id: order.id,
           status: order.status,
           tracking_number: order.tracking_number,
           estimated_delivery_earliest: addBusinessDays(placed, 3).toISOString().slice(0, 10),
-          estimated_delivery_latest: addBusinessDays(placed, 5).toISOString().slice(0, 10),
+          estimated_delivery_latest: latest.toISOString().slice(0, 10),
         },
       };
     }
