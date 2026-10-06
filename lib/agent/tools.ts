@@ -49,6 +49,19 @@ export const TOOL_DEFINITIONS: Tool[] = [
     ),
   },
   {
+    name: "check_delivery_date",
+    description:
+      "Estimate when an order will be delivered. Use when the customer asks when their order will arrive or how long delivery will take. Requires the order number and the email address on the order.",
+    strict: true,
+    input_schema: schema(
+      {
+        order_id: { type: "string", description: "Order number, e.g. NW-10421" },
+        email: { type: "string", description: "Email address used to place the order" },
+      },
+      ["order_id", "email"],
+    ),
+  },
+  {
     name: "list_customer_orders",
     description: "List recent orders for a customer email address. Use when the customer doesn't know their order number.",
     strict: true,
@@ -116,12 +129,14 @@ const INPUT_SCHEMAS: Record<string, z.ZodType> = {
   update_shipping_address: OrderAuth.extend({ new_address: z.string().min(5) }),
   issue_refund: OrderAuth.extend({ amount: z.number().positive(), reason: z.string() }),
   escalate_to_human: z.object({ reason: z.string(), summary: z.string() }),
+  check_delivery_date: OrderAuth,
 };
 
 /** Human-readable status shown in the chat widget while a tool runs. */
 export const TOOL_LABELS: Record<string, string> = {
   search_knowledge_base: "Searching the help center",
   lookup_order: "Looking up your order",
+  check_delivery_date: "Checking your delivery date",
   list_customer_orders: "Finding your orders",
   cancel_order: "Cancelling the order",
   update_shipping_address: "Updating the shipping address",
@@ -130,6 +145,18 @@ export const TOOL_LABELS: Record<string, string> = {
 };
 
 const norm = (s: string) => s.trim().toLowerCase();
+
+/** Adds business days (Mon-Fri), skipping weekends. */
+function addBusinessDays(start: Date, days: number): Date {
+  const date = new Date(start);
+  let added = 0;
+  while (added < days) {
+    date.setUTCDate(date.getUTCDate() + 1);
+    const day = date.getUTCDay();
+    if (day !== 0 && day !== 6) added++;
+  }
+  return date;
+}
 
 function publicOrder(o: Order) {
   return {
@@ -195,6 +222,28 @@ export async function executeTool(name: string, rawInput: unknown, ctx: ToolCont
       const order = authorizeOrder(ctx, input.order_id, input.email);
       if ("error" in order) return { output: order, isError: true };
       return { output: publicOrder(order) };
+    }
+
+    case "check_delivery_date": {
+      const order = authorizeOrder(ctx, input.order_id, input.email);
+      if ("error" in order) return { output: order, isError: true };
+      if (order.status === "processing") {
+        return { output: { order_id: order.id, status: order.status, note: "Not shipped yet. Orders placed before 2pm ET on a business day ship the same day; standard delivery then takes 3-5 business days." } };
+      }
+      if (order.status !== "shipped") {
+        return { output: { order_id: order.id, status: order.status, note: `The order is ${order.status}, so there is no delivery estimate.` } };
+      }
+      // Standard shipping: 3-5 business days after the order ships (same day as placed).
+      const placed = new Date(order.created_at);
+      return {
+        output: {
+          order_id: order.id,
+          status: order.status,
+          tracking_number: order.tracking_number,
+          estimated_delivery_earliest: addBusinessDays(placed, 3).toISOString().slice(0, 10),
+          estimated_delivery_latest: addBusinessDays(placed, 5).toISOString().slice(0, 10),
+        },
+      };
     }
 
     case "list_customer_orders": {
