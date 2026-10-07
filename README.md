@@ -1,60 +1,192 @@
-# Concierge — AI customer support agent
+<div align="center">
 
-An AI agent that resolves customer support conversations end to end, in the spirit of Decagon and Intercom Fin. It answers questions from your help center, takes real actions (order lookups, cancellations, address changes, refunds) under guardrails you set, and hands off to a human with a summary when it should.
+# 🛎️ Concierge
 
-## What's in the box
+### An AI customer-support agent that resolves issues end to end
 
-| Area | What it does |
+Answers from your help center · takes real actions under enforced rules · hands off to humans with full context
+
+<br/>
+
+![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/React_19-149ECA?style=for-the-badge&logo=react&logoColor=white)
+![Claude](https://img.shields.io/badge/Claude_Opus_5.5-D97757?style=for-the-badge&logo=anthropic&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
+
+**[Quick start](#-quick-start)** · **[Features](#-features)** · **[How it works](#-how-it-works)** · **[Architecture](docs/ARCHITECTURE.md)** · **[Key facts](facts/README.md)**
+
+<br/>
+
+<img src="docs/images/chat-widget.png" alt="Concierge chat widget answering a delivery question on a demo storefront" width="900"/>
+
+<sub>The agent checks a signed-in customer's order and answers with a delivery window and tracking number.</sub>
+
+</div>
+
+---
+
+## ✨ Overview
+
+Concierge is an **AI agent**, not a scripted chatbot. It understands the customer, decides which tools to use, and **resolves** the request instead of linking to an FAQ: in the spirit of platforms like Decagon and Intercom Fin.
+
+| | |
 |---|---|
-| **Chat widget** | Embeddable on any site with one `<script>` tag. Streams replies, shows what the agent is doing ("Looking up your order…"), cites help-center sources, collects 👍/👎 ratings, and has a "Talk to a person" button. |
-| **AI agent** | Claude (Opus 5.5 by default) with tool use: `search_knowledge_base`, `lookup_order`, `list_customer_orders`, `cancel_order`, `update_shipping_address`, `issue_refund`, `escalate_to_human`. |
-| **Procedures** | Plain-language playbooks ("when a customer asks for a refund, do 1-2-3…") that the agent follows. Editable in the dashboard; no code changes. |
-| **Guardrails** | Enforced in code, not just the prompt: signed-in customers can only see their own orders, guests need order number + email, refunds above the auto-approve limit are blocked and must be escalated, and cancellations/address changes only work before shipping. |
-| **Human handoff** | Escalated chats land in the inbox with the agent's handoff summary. Teammates reply from the dashboard and the customer sees it live in the widget. **Copilot** drafts the reply for them. |
-| **Analytics** | Conversations handled fully by AI, CSAT, open escalations, actions taken, refund totals, escalation reasons, and **knowledge gaps** (questions the help center couldn't answer). |
+| 💬 **Grounded answers** | Searches the help center before answering, so replies follow company policy |
+| ⚡ **Real actions** | Order lookup, delivery estimates, cancellations, address changes and refunds |
+| 🔒 **Rules in code** | Refund limits, order ownership and status checks are enforced by the tools themselves |
+| 🙋 **Human handoff** | Escalates with a summary; teammates reply from an inbox, live in the same chat |
+| 🎛️ **No-code control** | Procedures, articles, tone and limits are editable in the admin dashboard |
+| 📊 **Built-in analytics** | AI resolution rate, satisfaction, actions taken and knowledge gaps |
 
-## Getting started
+---
 
-Requires Node.js 24+ (uses the built-in `node:sqlite`).
+## 📸 Screenshots
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**Admin overview**
+<img src="docs/images/admin-overview.png" alt="Admin overview dashboard with resolution rate, satisfaction and actions taken"/>
+Resolution rate, satisfaction, daily volume, actions taken, escalation reasons and knowledge gaps.
+
+</td>
+<td width="50%" valign="top">
+
+**Inbox with tool trace**
+<img src="docs/images/admin-inbox.png" alt="Admin inbox showing a conversation with the check_delivery_date tool call expanded"/>
+Every conversation, the exact tool calls the agent made, and AI-drafted replies for teammates.
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🚀 Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 💬 Chat widget
+- One `<script>` tag on any site
+- Streams replies word by word
+- Shows live status ("Checking your delivery date…")
+- Cites help-center sources
+- 👍 / 👎 ratings and "Talk to a person"
+
+</td>
+<td width="50%" valign="top">
+
+### 🧠 AI agent
+- Claude Opus 5.5 (Sonnet 5.5 selectable)
+- 8 tools with strict input schemas
+- Adaptive thinking and configurable effort
+- Prompt caching and refusal fallback
+- Up to 10 reasoning steps per message
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🔒 Guardrails
+- Refunds capped at a configurable limit
+- Customers can only access their own orders
+- Cancellations and address changes only before shipping
+- Every tool input validated with Zod
+- Prompt-injection attempts can't bypass the rules
+
+</td>
+<td width="50%" valign="top">
+
+### 👥 Admin dashboard
+- **Inbox:** handoff summaries, tool traces, AI-drafted replies
+- **Knowledge:** article editor and knowledge gaps
+- **Procedures:** plain-language playbooks
+- **Settings:** name, tone, model, effort, refund limit
+- **Overview:** analytics and trends
+
+</td>
+</tr>
+</table>
+
+---
+
+## ⚙️ How it works
+
+```mermaid
+flowchart TD
+    C(["🙋 Customer"]) --> W["💬 Chat widget"]
+    W --> L["🔁 Agent loop"]
+    L <--> M["🧠 Claude"]
+    L --> T["🧰 Tools + guardrails"]
+    T --> D[("🗄️ Orders · articles · logs")]
+    T -. "needs a person" .-> H["👥 Human inbox"]
+```
+
+1. The customer writes in the chat widget.
+2. The **agent loop** sends the conversation and the tool list to Claude.
+3. Claude either replies or **requests a tool**, such as `check_delivery_date`.
+4. The tool **validates the input, enforces the rules**, runs, and returns a result.
+5. The loop repeats until Claude writes the final reply, which streams to the customer.
+
+> [!TIP]
+> **Claude decides; the code enforces.** The model chooses what to do, but every action passes through checks it cannot override.
+
+### 🧰 Tools
+
+| | Tool | What it does | Enforced rule |
+|:-:|---|---|---|
+| 🔎 | `search_knowledge_base` | Searches help articles | Logs a knowledge gap when nothing matches |
+| 📦 | `lookup_order` | Order details | Order number + matching email |
+| 🚚 | `check_delivery_date` | Delivery estimate; flags delays | Same ownership check |
+| 🗂️ | `list_customer_orders` | A customer's orders | Signed-in customers see only their own |
+| ❌ | `cancel_order` | Cancels an order | Only while `processing` |
+| 🏠 | `update_shipping_address` | Changes the address | Only while `processing` |
+| 💸 | `issue_refund` | Refunds to the original payment | Within limit and remaining balance |
+| 🙋 | `escalate_to_human` | Hands off with a summary | Records the reason for the inbox |
+
+---
+
+## 🏁 Quick start
+
+> [!NOTE]
+> Requires **Node.js 24+** (uses the built-in `node:sqlite`) and a [Claude API key](https://platform.claude.com).
 
 ```bash
+git clone https://github.com/pritmon/concierge-ai-agent.git
+cd concierge-ai-agent
 npm install
-cp .env.example .env.local   # then paste your ANTHROPIC_API_KEY
+cp .env.example .env.local     # add your ANTHROPIC_API_KEY
 npm run dev
 ```
 
-- Storefront demo with the widget: http://localhost:3000 (use "Browse as" to chat as a guest or a signed-in customer)
-- Admin dashboard: http://localhost:3000/admin
+| Open | What you'll see |
+|---|---|
+| **http://localhost:3000** | Demo storefront with the chat widget. Use **Browse as** to switch between a guest and signed-in customers |
+| **http://localhost:3000/admin** | Admin dashboard |
 
-The database (`data/support.db`) is created and seeded with demo help articles, procedures and orders on first run. Delete the file to reset.
+The database (`data/support.db`) is created and filled with demo articles, procedures and orders on first run. Delete it to reset.
 
-### Things to try
+### 🧪 Try these
 
-- "What's your return policy?" — answers from the help center with sources
-- Browse as **Sam**: "Cancel my rain shell order" — looks up NW-10502, confirms, cancels
-- As a guest: "I want a refund for order NW-10421, email alex@example.com" — $229 is over the $100 limit, so the agent escalates with a summary
-- "I'm going to file a chargeback" — triggers the "Upset customer" procedure → escalation
-- Reply to an escalated chat from **Inbox**, or click **✨ Draft reply with AI**
+| Browse as | Ask | Expected result |
+|---|---|---|
+| Anyone | *"What's your return policy?"* | Answer grounded in the help center, with sources |
+| **Alex** | *"When will order NW-10488 arrive?"* | Delivery window and tracking number |
+| **Sam** | *"Cancel my rain shell order"* | Finds NW-10502, asks to confirm, cancels |
+| Guest | *"Refund NW-10421, email alex@example.com"* | $229 is over the $100 limit, so it escalates with a summary |
+| Anyone | *"I'm going to file a chargeback"* | The upset-customer procedure hands off immediately |
 
-## How it works
+Then open **Admin → Inbox** to see the handoff summary and tool traces, and try **✨ Draft reply with AI**.
 
-For a full walkthrough of the code, see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
-For key concepts, design decisions and a glossary, see **[facts/](facts/README.md)**.
+---
 
-```
-widget (iframe) ──POST /api/chat (SSE)──▶ lib/agent/run.ts ──▶ Claude Messages API
-                                              │   ▲ tool_use / tool_result loop
-                                              ▼   │
-                                        lib/agent/tools.ts ──▶ orders, knowledge base (SQLite)
-```
-
-- `lib/agent/run.ts` — the agent loop. Builds the system prompt from settings + enabled procedures, streams text to the widget, runs tools, and stores the full Claude message history per conversation (append-only, so thinking blocks stay valid across turns). Uses adaptive thinking, the configured effort level, prompt caching on the system prompt, and server-side refusal fallbacks (`fallbacks: "default"`).
-- `lib/agent/tools.ts` — tool definitions (strict JSON schemas) and their implementations, with input validation and authorization.
-- `lib/kb.ts` — BM25 search over help-center articles.
-- `lib/agent/copilot.ts` — reply drafts for human agents.
-- `public/widget.js` — the embed script.
-
-## Embedding on your site
+## 🧩 Embed on any website
 
 ```html
 <script src="https://YOUR-DOMAIN/widget.js"
@@ -63,15 +195,79 @@ widget (iframe) ──POST /api/chat (SSE)──▶ lib/agent/run.ts ──▶ C
         async></script>
 ```
 
-Omit the `data-customer-*` attributes for anonymous visitors.
+Leave out the `data-customer-*` attributes for anonymous visitors.
 
-## Before production
+---
 
-This is a working MVP. The main gaps to close before real customers use it:
+## 🛠️ Tech stack
 
-1. **Admin authentication** — `/admin` and `/api/admin/*` are open. Add auth (e.g. Auth.js, Clerk) and protect them in `proxy.ts`.
-2. **Identity verification** — the widget trusts `data-customer-email`. Sign it on your server (HMAC of the email with a shared secret) and verify in `/api/chat`.
-3. **Real integrations** — replace the demo `orders` table in `lib/agent/tools.ts` with calls to Shopify / your OMS / Stripe.
-4. **Database** — move from SQLite to Postgres for multi-instance deployments; consider vector search once the help center has hundreds of articles.
-5. **Rate limiting & abuse protection** on `/api/chat`.
-6. **More channels** — email and voice reuse the same `runAgentTurn` loop.
+| Layer | Technology |
+|---|---|
+| **Framework** | Next.js 16 (App Router) · React 19 · TypeScript |
+| **AI** | Claude Opus 5.5 via `@anthropic-ai/sdk`: tool use, streaming, adaptive thinking, prompt caching |
+| **Data** | SQLite (`node:sqlite`) · Zod validation |
+| **Search** | BM25 keyword ranking |
+| **Realtime** | Server-Sent Events |
+| **Styling** | Tailwind CSS v4 |
+
+<details>
+<summary><b>📁 Project structure</b></summary>
+
+```
+app/
+├── page.tsx                demo storefront
+├── widget/                 chat widget page
+├── admin/                  overview · inbox · knowledge · procedures · orders · settings
+└── api/                    chat (streaming), conversations, admin APIs
+lib/
+├── agent/run.ts            agent loop
+├── agent/tools.ts          tools and guardrails
+├── agent/copilot.ts        reply drafts for teammates
+├── db.ts                   database
+├── kb.ts                   help-center search
+└── seed.ts                 demo data
+components/ChatWidget.tsx   customer chat UI
+public/widget.js            embed script
+docs/                       architecture guide and images
+facts/                      key concepts and glossary
+```
+
+</details>
+
+---
+
+## 📚 Documentation
+
+| | Guide | Covers |
+|:-:|---|---|
+| 🏛️ | **[Architecture](docs/ARCHITECTURE.md)** | System diagrams, request lifecycle, agent loop, data model, code map |
+| 📘 | **[Key facts & concepts](facts/README.md)** | Agents vs chatbots, tools, guardrails, design decisions, glossary |
+
+---
+
+## 🗺️ Roadmap
+
+| Status | Item |
+|:-:|---|
+| ✅ | Agent loop with 8 tools and guardrails in code |
+| ✅ | Human handoff inbox with AI-drafted replies |
+| ✅ | Procedures, knowledge base and settings editors |
+| ✅ | Analytics and knowledge gaps |
+| ✅ | Delivery estimates with delay detection |
+| ⏳ | Admin authentication |
+| ⏳ | Signed customer identity (HMAC) |
+| ⏳ | Automated evaluation suite |
+| ⏳ | Real integrations (Shopify, Stripe) |
+| ⏳ | Postgres and rate limiting |
+| ⏳ | Email and voice channels |
+
+> [!IMPORTANT]
+> This is a working MVP. Before real customers use it, add admin authentication and signed customer identity: `/admin` is currently open and the widget trusts the email it's given.
+
+---
+
+<div align="center">
+
+Built with **Next.js** and **Claude** · [Architecture](docs/ARCHITECTURE.md) · [Key facts](facts/README.md)
+
+</div>

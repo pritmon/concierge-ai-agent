@@ -25,6 +25,7 @@ const SERIES = { ai: "#2a78d6", human: "#eb6834" };
 const TOOL_NAMES: Record<string, string> = {
   search_knowledge_base: "Searched help center",
   lookup_order: "Looked up order",
+  check_delivery_date: "Checked delivery date",
   list_customer_orders: "Listed customer orders",
   cancel_order: "Cancelled order",
   update_shipping_address: "Changed shipping address",
