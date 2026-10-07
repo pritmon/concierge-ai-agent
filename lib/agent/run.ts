@@ -1,3 +1,13 @@
+/**
+ * The agent loop: the core of the support agent.
+ *
+ * For each customer message, runAgentTurn() sends the conversation to Claude,
+ * runs any tools Claude asks for (lib/agent/tools.ts), sends the results back,
+ * and repeats until Claude writes a final reply. Text and tool status are
+ * streamed to the chat widget as AgentEvents via /api/chat.
+ *
+ * See docs/ARCHITECTURE.md for the end-to-end flow.
+ */
 import Anthropic from "@anthropic-ai/sdk";
 import {
   addMessage,
@@ -15,6 +25,7 @@ import { executeTool, TOOL_DEFINITIONS, TOOL_LABELS, type ToolContext } from "./
 
 type MessageParam = Anthropic.Beta.BetaMessageParam;
 
+/** Events streamed to the chat widget while the agent works. */
 export type AgentEvent =
   | { type: "text"; delta: string }
   | { type: "reset" }
@@ -23,10 +34,17 @@ export type AgentEvent =
   | { type: "done"; messageId: number; sources: { id: number; title: string }[] }
   | { type: "error"; message: string };
 
+// Upper bound on model calls per customer message, so a confused model can't loop forever.
 const MAX_ITERATIONS = 10;
 
+// Reads ANTHROPIC_API_KEY from the environment (.env.local).
 const client = new Anthropic();
 
+/**
+ * Builds the agent's instructions from admin-editable settings and procedures.
+ * The output only changes when an admin edits those, so it is cached between
+ * requests (see cache_control below).
+ */
 function buildSystemPrompt(settings: Settings, procedures: Procedure[]): string {
   const procedureText = procedures.length
     ? procedures
@@ -71,6 +89,8 @@ export async function* runAgentTurn(conversationId: string, customerText: string
     .all() as unknown as Procedure[];
   const ctx: ToolContext = { conversationId, verifiedEmail: conversation.customer_email, settings };
 
+  // The raw Claude conversation (including tool calls), stored separately from the
+  // customer-visible transcript. It is only ever appended to, never edited.
   const history = getLlmHistory<MessageParam>(conversationId);
   const startLength = history.length;
   history.push({ role: "user", content: customerText });
@@ -88,14 +108,20 @@ export async function* runAgentTurn(conversationId: string, customerText: string
   let escalated = false;
 
   try {
+    // Each iteration is one Claude call. It ends either with a final reply (stop)
+    // or with tool requests (run them, append results, call Claude again).
     for (let i = 0; i < MAX_ITERATIONS; i++) {
       const stream = client.beta.messages.stream({
         model: settings.model,
         max_tokens: 16000,
+        // If the model declines a request for policy reasons, the API retries it
+        // on a recommended fallback model instead of returning the refusal.
         betas: ["server-side-fallback-2026-07-01"],
         fallbacks: "default",
+        // Claude decides how much to think; effort (set in admin) trades depth for speed.
         thinking: { type: "adaptive" },
         output_config: { effort: settings.effort },
+        // The stable prompt is cached; volatile context comes after it so it doesn't break the cache.
         system: [
           { type: "text", text: buildSystemPrompt(settings, procedures), cache_control: { type: "ephemeral" } },
           { type: "text", text: sessionContext },
@@ -104,6 +130,7 @@ export async function* runAgentTurn(conversationId: string, customerText: string
         messages: history,
       });
 
+      // Forward text to the widget as it is generated.
       for await (const event of stream) {
         if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
           replyText += event.delta.text;
@@ -127,8 +154,10 @@ export async function* runAgentTurn(conversationId: string, customerText: string
         break;
       }
 
+      // Store Claude's full response unchanged (text, thinking and tool calls).
       history.push({ role: "assistant", content: message.content });
 
+      // No tool requests means Claude has written its final reply.
       const toolUses = message.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use");
       if (message.stop_reason !== "tool_use" || toolUses.length === 0) {
         if (message.stop_reason === "pause_turn") continue;
@@ -140,6 +169,8 @@ export async function* runAgentTurn(conversationId: string, customerText: string
         yield { type: "text", delta: "\n\n" };
       }
 
+      // Run each requested tool. Tool outcomes are also logged for the admin
+      // inbox and analytics.
       const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
       for (const use of toolUses) {
         yield { type: "tool", name: use.name, label: TOOL_LABELS[use.name] ?? use.name };
@@ -181,6 +212,7 @@ export async function* runAgentTurn(conversationId: string, customerText: string
   yield { type: "done", messageId: row.id, sources: sourceList };
 }
 
+/** Turns SDK errors into messages that are safe to show customers. */
 function describeError(err: unknown): string {
   if (err instanceof Anthropic.AuthenticationError) {
     return "The AI agent isn't configured: set ANTHROPIC_API_KEY in .env.local and restart the server.";

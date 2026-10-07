@@ -1,3 +1,10 @@
+/**
+ * POST /api/chat: entry point for every customer message from the widget.
+ *
+ * Saves the message, then either runs the AI agent or, if a human owns the
+ * conversation, just queues it. The response is a stream of server-sent events
+ * (text deltas, tool status, done) that the widget renders live.
+ */
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { runAgentTurn, type AgentEvent } from "@/lib/agent/run";
