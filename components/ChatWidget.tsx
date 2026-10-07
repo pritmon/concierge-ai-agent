@@ -1,5 +1,13 @@
 "use client";
 
+/**
+ * The customer-facing chat UI, loaded inside the iframe that public/widget.js
+ * injects into a host site.
+ *
+ * Sends messages to /api/chat and renders the streamed events. After each turn
+ * it re-syncs with the server, and while a human owns the conversation it polls
+ * for their replies.
+ */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Markdown } from "./Markdown";
 

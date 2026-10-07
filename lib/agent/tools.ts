@@ -1,3 +1,17 @@
+/**
+ * The agent's tools: what it can do beyond writing text.
+ *
+ * Each tool has two halves:
+ *   1. A definition in TOOL_DEFINITIONS: the name, description and input schema
+ *      Claude reads to decide when to call it.
+ *   2. An implementation in executeTool(): the code that runs when it does.
+ *
+ * Business rules (order ownership, refund limit, order status checks) are
+ * enforced here in code, not in the prompt, so the model can't bypass them.
+ *
+ * To add a tool: add a definition, an input schema, a label, and a case in
+ * executeTool().
+ */
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { db, logKnowledgeGap, updateConversation, type Order, type Settings } from "../db";
@@ -20,6 +34,7 @@ export interface ToolOutcome {
 
 type Tool = Anthropic.Beta.BetaTool;
 
+// With strict tools, Claude's arguments always match the declared JSON schema.
 function schema(properties: Record<string, unknown>, required: string[]): Tool["input_schema"] {
   return { type: "object", properties, required, additionalProperties: false };
 }
@@ -120,6 +135,8 @@ export const TOOL_DEFINITIONS: Tool[] = [
   },
 ];
 
+// Runtime validation of tool inputs. Model output is untrusted, so every tool
+// input is checked again here before any code runs.
 const OrderAuth = z.object({ order_id: z.string(), email: z.string() });
 const INPUT_SCHEMAS: Record<string, z.ZodType> = {
   search_knowledge_base: z.object({ query: z.string() }),

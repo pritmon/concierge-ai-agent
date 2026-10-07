@@ -3,6 +3,9 @@ import { db, type Article } from "./db";
 // Lightweight BM25 retrieval over the knowledge base. Good enough for a few
 // hundred articles; swap for a vector store (pgvector, Turbopuffer, etc.) when
 // the corpus grows.
+//
+// BM25 scores an article higher when it contains the query's words often,
+// especially rare words, while not over-rewarding long articles.
 
 const STOPWORDS = new Set(
   "a an and are as at be but by can do does for from how i if in is it its me my of on or our so that the their this to was we what when where which who will with you your".split(

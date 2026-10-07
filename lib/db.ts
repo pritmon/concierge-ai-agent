@@ -1,3 +1,18 @@
+/**
+ * Database access. Uses Node's built-in SQLite, so there is no server to run;
+ * swap for Postgres before deploying to multiple instances.
+ *
+ * Tables:
+ *   settings        agent name, tone, model, refund limit (key/value)
+ *   articles        help-center content the agent searches
+ *   procedures      admin-written playbooks added to the system prompt
+ *   orders          demo backend that the tools read and change
+ *   conversations   one row per chat, with status: ai | escalated | resolved | closed
+ *   messages        customer-visible transcript (plus tool and system rows for admins)
+ *   llm_history     raw Claude message history per conversation (JSON)
+ *   actions         log of every tool call, for analytics
+ *   knowledge_gaps  searches that found no article
+ */
 import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
@@ -5,6 +20,7 @@ import { seed } from "./seed";
 
 const DB_PATH = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "support.db");
 
+// Tables are created on first use; seed() fills a new database with demo data.
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
@@ -78,8 +94,10 @@ CREATE TABLE IF NOT EXISTS knowledge_gaps (
 );
 `;
 
+// Kept on globalThis so dev-server hot reloads reuse one connection.
 const globalForDb = globalThis as unknown as { __supportDb?: DatabaseSync };
 
+/** Returns the shared database connection, creating and seeding it on first use. */
 export function db(): DatabaseSync {
   if (!globalForDb.__supportDb) {
     fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
