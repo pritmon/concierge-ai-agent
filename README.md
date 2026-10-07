@@ -119,13 +119,13 @@ Every conversation, the exact tool calls the agent made, and AI-drafted replies 
 ## ⚙️ How it works
 
 ```mermaid
-flowchart LR
+flowchart TD
     C(["🙋 Customer"]) --> W["💬 Chat widget"]
     W --> L["🔁 Agent loop"]
     L <--> M["🧠 Claude"]
     L --> T["🧰 Tools + guardrails"]
     T --> D[("🗄️ Orders · articles · logs")]
-    T -. "can't help" .-> H["👥 Human inbox"]
+    T -. "needs a person" .-> H["👥 Human inbox"]
 ```
 
 1. The customer writes in the chat widget.
