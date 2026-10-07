@@ -31,26 +31,17 @@
 ## 1. System overview
 
 ```mermaid
-flowchart LR
-    subgraph Customer["🌐 Customer's website"]
-        W["widget.js<br/>chat bubble"] --> UI["ChatWidget<br/>(iframe)"]
-    end
-
-    subgraph Server["⚙️ Concierge server"]
-        API["/api/chat"] --> LOOP["Agent loop<br/>run.ts"]
-        LOOP --> TOOLS["Tools<br/>tools.ts"]
-        TOOLS --> KB["Search<br/>kb.ts"]
-        TOOLS --> DB[("SQLite<br/>db.ts")]
-        KB --> DB
-    end
-
-    subgraph Team["👥 Support team"]
-        ADMIN["Admin dashboard<br/>/admin"]
-    end
-
-    UI -- "message" --> API
-    API -- "streamed reply (SSE)" --> UI
+flowchart TB
+    CUST(["🌐 Customer"]) --> W["Chat widget<br/>widget.js + ChatWidget"]
+    W -- "message" --> API["Chat API<br/>/api/chat"]
+    API -. "streamed reply (SSE)" .-> W
+    API --> LOOP["Agent loop<br/>run.ts"]
     LOOP <--> CLAUDE["🧠 Claude API"]
+    LOOP --> TOOLS["Tools + guardrails<br/>tools.ts"]
+    TOOLS --> KB["Help-center search<br/>kb.ts"]
+    TOOLS --> DB[("Database<br/>SQLite · db.ts")]
+    KB --> DB
+    TEAM(["👥 Support team"]) --> ADMIN["Admin dashboard<br/>/admin"]
     ADMIN <--> DB
 ```
 
@@ -151,7 +142,7 @@ flowchart TD
 > **A tool = a function + a description.** Claude only reads the name, description and input schema. It never sees or runs the code.
 
 ```mermaid
-flowchart LR
+flowchart TD
     D["📋 Definition<br/>name · description · schema"] -->|"Claude reads"| C["🧠 Claude chooses<br/>tool + arguments"]
     C --> V["✅ Zod validation"] --> R["🔒 Rule checks"] --> E["⚙️ Execute"] --> O["📤 Result to Claude"]
 ```
@@ -197,7 +188,7 @@ Write the description as an instruction about **when** to use the tool. Claude r
 | **Refusal handling** | Declined requests | Fallback model, then human handoff |
 
 ```mermaid
-flowchart LR
+flowchart TD
     REQ["Claude requests<br/>issue_refund $500"] --> Z{"Valid input?"}
     Z -- "No" --> X1["❌ Rejected"]
     Z -- "Yes" --> O{"Owns the order?"}
