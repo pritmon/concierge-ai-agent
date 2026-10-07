@@ -338,8 +338,11 @@ if (!result.success) return { error: "Invalid input" };   // nothing executes
 ### 🔄 Knowledge gaps
 
 ```mermaid
-flowchart LR
-    Q["❓ Unanswered<br/>question"] --> L["📝 Logged as<br/>a gap"] --> D["📊 Shown on<br/>dashboard"] --> W["✍️ Team writes<br/>an article"] --> R["📈 Higher<br/>resolution rate"]
+flowchart TD
+    Q["❓ Unanswered question"] --> L["📝 Logged as a gap"]
+    L --> D["📊 Shown on the dashboard"]
+    D --> W["✍️ Team writes an article"]
+    W --> R["📈 Agent answers it next time"]
 ```
 
 ---
@@ -629,8 +632,20 @@ flowchart TD
 ## 16. Development workflow
 
 ```mermaid
-flowchart LR
-    T["🎫 Ticket"] --> B["🌿 Branch"] --> C["✏️ Code"] --> D["🔍 Self-review<br/>git diff"] --> K["✅ Checks<br/>tsc + lint"] --> P["📬 Pull request"] --> R["👀 Review"] --> M["🔀 Merge"]
+flowchart TD
+    subgraph BUILD["Build"]
+        direction LR
+        T["🎫 Ticket"] --> B["🌿 Branch"] --> C["✏️ Code"]
+    end
+    subgraph VERIFY["Verify"]
+        direction LR
+        D["🔍 Self-review<br/>git diff"] --> K["✅ Checks<br/>tsc + lint"]
+    end
+    subgraph SHIP["Ship"]
+        direction LR
+        P["📬 Pull request"] --> R["👀 Review"] --> M["🔀 Merge"]
+    end
+    BUILD --> VERIFY --> SHIP
 ```
 
 | Step | Command |
