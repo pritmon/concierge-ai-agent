@@ -39,6 +39,7 @@ The database (`data/support.db`) is created and seeded with demo help articles, 
 ## How it works
 
 For a full walkthrough of the code, see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+For key concepts, design decisions and a glossary, see **[facts/](facts/README.md)**.
 
 ```
 widget (iframe) ──POST /api/chat (SSE)──▶ lib/agent/run.ts ──▶ Claude Messages API
